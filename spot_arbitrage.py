@@ -12,65 +12,30 @@ import requests
 
 
 class ArbitrageStratety:
-    # huobi balance
-    huobi_trade_btc = 0
-    huobi_trade_usdt = 0
-    huobi_freezed_btc = 0
-    huobi_freezed_usdt = 0
+
     huobi_fee_rate = 0.0012
-
-    huobi_min_usdt_amount = 1
-
-    # binance balance
-    binance_trade_btc = 0
-    binance_trade_usdt = 0
-    binance_freezed_btc = 0
-    binance_freezed_usdt = 0
     binance_fee_rate = 0.0005
-    binance_min_btc_amount = 0.001
 
-    # 收益统计
-    huobi_usdt_inc = 0
-    huobi_usdt_dec = 0
-    binance_usdt_inc = 0
-    binance_usdt_dec = 0
-
-    huobi_btc_total_change = 0
-    huobi_usdt_total_change = 0
-    binance_btc_total_change = 0
-    binance_usdt_total_change = 0
-
-    huobi_fees = 0
-    binance_fees = 0
     bnb_price = 10.8159
 
-    # 成交量统计
-    usdt_exchange_amount = 0
-    btc_exchange_amount = 0
-
-    # other params
     huobi_profit_rate = 0.0003
     binance_profit_rate = 0.0003
 
-    field_buy_price = 0
-    field_sell_price = 0
-
     btc_exchange_min = 0.001
     btc_exchange_max = 0.065
-    huobi_btc_percent = 0
-    binance_btc_percent = 0
 
+    # HUOBI API最大连续超时次数
+    huobi_max_timeout = 3
+
+    # 深度参数阈值
+    STD_THD = 5
+    SUM_THD = 1
+
+    # API KEY
     HUOBI_ACCESS_KEY = ''
     HUOBI_SECRET_KEY = ''
     BINANCE_ACCESS_KEY = ''
     BINANCE_SECRET_KEY = ''
-
-    # huobi API最大连续超时次数
-    huobi_max_timeout = 3
-
-    #
-    STD_THD = 5
-    SUM_THD = 1
 
     def __init__(self):
         # 读取配置文件
@@ -114,6 +79,28 @@ class ArbitrageStratety:
         # 用于记录huobi连续响应过长时间的次数，超过两次，就退出
         self.huobi_timeout = 0
 
+        # 收益统计
+        self.huobi_usdt_inc = 0
+        self.huobi_usdt_dec = 0
+        self.binance_usdt_inc = 0
+        self.binance_usdt_dec = 0
+
+        self.huobi_usdt_total_change = 0
+        self.binance_usdt_total_change = 0
+
+        self.huobi_fees = 0
+        self.binance_fees = 0
+
+        # 账户余额
+        self.huobi_trade_btc = 0
+        self.huobi_trade_usdt = 0
+        self.binance_trade_btc = 0
+        self.binance_trade_usdt = 0
+
+        # 成交量统计
+        self.usdt_exchange_amount = 0
+        self.btc_exchange_amount = 0
+
     @staticmethod
     def sms_notify(msg):
         url = 'http://221.228.17.88:8080/sendmsg/send'
@@ -152,16 +139,18 @@ class ArbitrageStratety:
         except Exception as e:
             self.logger.error('Binance get_account error: %s' % e)
         else:
+            freezed_btc = 0
+            freezed_usdt = 0
             for info in account_info['balances']:
                 if info['asset'] == 'BTC':
                     self.binance_trade_btc = float(info['free'])
-                    self.binance_freezed_btc = float(info['locked'])
+                    freezed_btc = float(info['locked'])
                 elif info['asset'] == 'USDT':
                     self.binance_trade_usdt = float(info['free'])
-                    self.binance_freezed_usdt = float(info['locked'])
+                    freezed_usdt = float(info['locked'])
             self.logger.info('|' + 'Binance:')
-            self.logger.info('|' + self.btc_mat.format(self.binance_trade_btc, self.binance_freezed_btc))
-            self.logger.info('|' + self.usdt_mat.format(self.binance_trade_usdt, self.binance_freezed_usdt))
+            self.logger.info('|' + self.btc_mat.format(self.binance_trade_btc, freezed_btc))
+            self.logger.info('|' + self.usdt_mat.format(self.binance_trade_usdt, freezed_usdt))
 
             # update huobi
             json_r = self.huobiSpot.get_balance()
@@ -170,14 +159,14 @@ class ArbitrageStratety:
                     if item['currency'] == 'btc' and item['type'] == 'trade':
                         self.huobi_trade_btc = float(item['balance'])
                     elif item['currency'] == 'btc' and item['type'] == 'frozen':
-                        self.huobi_freezed_btc = float(item['balance'])
+                        freezed_btc = float(item['balance'])
                     elif item['currency'] == 'usdt' and item['type'] == 'trade':
                         self.huobi_trade_usdt = float(item['balance'])
                     elif item['currency'] == 'usdt' and item['type'] == 'frozen':
-                        self.huobi_freezed_usdt = float(item['balance'])
+                        freezed_usdt = float(item['balance'])
                 self.logger.info('|' + 'Huobi:')
-                self.logger.info('|' + self.btc_mat.format(self.huobi_trade_btc, self.huobi_freezed_btc))
-                self.logger.info('|' + self.usdt_mat.format(self.huobi_trade_usdt, self.huobi_freezed_usdt))
+                self.logger.info('|' + self.btc_mat.format(self.huobi_trade_btc, freezed_btc))
+                self.logger.info('|' + self.usdt_mat.format(self.huobi_trade_usdt, freezed_usdt))
 
                 self.logger.info('|' + 'Total:')
                 self.logger.info('|' + self.total_format.format(self.binance_trade_btc + self.huobi_trade_btc,

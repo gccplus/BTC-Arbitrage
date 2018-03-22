@@ -25,6 +25,14 @@ PATH_CANCEL_ORDER = "cancel_order.do"  # 撤销订单
 PATH_BALANCES_USERINFO = "userinfo.do"  # 个人资产情况
 PATH_TRADE = "trade.do"  # 获取币币交易信息
 
+OPEN_LONG = '1'   #开多
+OPEN_SHORT = '2'  #开空
+CLOSE_LONG = '3'  #平多
+CLOSE_SHORT = '4' #平空
+
+MATCH_PRICE_TRUE = '1'
+MATCH_PRICE_FALSE = '0'
+
 # HTTP request timeout in seconds
 TIMEOUT = 10.0
 
@@ -243,6 +251,8 @@ class OkexFutureClient(OkexBaseClient):
         """
         # Request
         POST https://www.okex.com/api/v1/future_order_info.do
+        status 查询状态 1:未完成的订单 2:已经完成的订单
+        order_id 订单ID -1:查询指定状态的订单，否则查询相应订单号的订单
         # Response
         {
           "orders":

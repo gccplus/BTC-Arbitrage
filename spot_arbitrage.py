@@ -12,42 +12,34 @@ import requests
 
 
 class ArbitrageStratety:
-
+    # 手续费率
     huobi_fee_rate = 0.0012
     binance_fee_rate = 0.0005
-
     bnb_price = 10.8159
-
+    # 盈利率
     huobi_profit_rate = 0.0003
     binance_profit_rate = 0.0003
-
+    # btc每次最大交易量
     btc_exchange_min = 0.001
     btc_exchange_max = 0.065
-
     # HUOBI API最大连续超时次数
     huobi_max_timeout = 3
-
     # 深度参数阈值
     STD_THD = 5
-    SUM_THD = 1
-
-    # API KEY
-    HUOBI_ACCESS_KEY = ''
-    HUOBI_SECRET_KEY = ''
-    BINANCE_ACCESS_KEY = ''
-    BINANCE_SECRET_KEY = ''
+    SUM_THD = 0.5
 
     def __init__(self):
+        key_dict = {}
         # 读取配置文件
         with open('config', 'r') as f:
             for line in f.readlines():
                 splited = line.split('=')
                 if len(splited) == 2:
-                    setattr(self, splited[0].strip(), splited[1].strip())
-        # nowtime = time.strftime('%Y-%m-%d_%H:%M', time.localtime(time.time()))
+                    key_dict[splited[0].strip()] = splited[1].strip()
+
         self.output = open('history', 'a+')
-        self.huobiSpot = HuobiSpot(self.HUOBI_ACCESS_KEY, self.HUOBI_SECRET_KEY)
-        self.binanceClient = BinanceSpot(self.BINANCE_ACCESS_KEY, self.BINANCE_SECRET_KEY)
+        self.huobiSpot = HuobiSpot(key_dict['HUOBI_ACCESS_KEY'], key_dict['HUOBI_SECRET_KEY'])
+        self.binanceClient = BinanceSpot(key_dict['BINANCE_ACCESS_KEY'], key_dict['BINANCE_SECRET_KEY'])
 
         self.today = datetime.date.today()
         self.btc_mat = "BTC :\tfree:{:<20.8f}locked:{:<20.8f}"
@@ -101,6 +93,8 @@ class ArbitrageStratety:
         self.usdt_exchange_amount = 0
         self.btc_exchange_amount = 0
 
+        self.last_deal_time = 0
+
     @staticmethod
     def sms_notify(msg):
         url = 'http://221.228.17.88:8080/sendmsg/send'
@@ -112,7 +106,7 @@ class ArbitrageStratety:
 
     def update_profit_rate(self):
         self.logger.info('更新盈利率')
-        huobi_btc_percent = self.huobi_trade_btc / (self.huobi_trade_btc + self.binance_trade_btc)
+        huobi_btc_percent = float('%.2f' % (self.huobi_trade_btc / (self.huobi_trade_btc + self.binance_trade_btc)))
         binance_btc_percent = 1 - huobi_btc_percent
 
         self.logger.info('Huobi: %s\tBinance:%s' % (huobi_btc_percent, binance_btc_percent))
@@ -261,7 +255,7 @@ class ArbitrageStratety:
                     self.logger.info('BTC交易数量不足: %s, 本单取消' % self.btc_exchange_min)
                     time.sleep(1)
                     continue
-                if usdt_amount > self.binance_trade_usdt + 10:
+                if usdt_amount > self.binance_trade_usdt - 5:
                     self.logger.info('Binance USDT 数量: %s, 不足：%s, 本单取消' % (self.binance_trade_usdt, usdt_amount))
                     time.sleep(1)
                     continue
@@ -291,21 +285,32 @@ class ArbitrageStratety:
                         print cancel_r
                     except Exception as e:
                         self.logger.error(u'撤销错误: %s' % e)
-                        try:
-                            order = self.binanceClient.get_order(symbol='BTCUSDT', orderId=buy_order_id)
-                            buy_order['status'] = order['status']
-                            self.logger.info(u'当前订单状态为: %s', order['status'])
-                            self.logger.info('计算本次成交量')
-                            binance_trades = self.binanceClient.get_my_trades(symbol='BTCUSDT')
-                            print binance_trades
-                            for trade in binance_trades:
-                                if trade['orderId'] == buy_order_id:
-                                    field_fees += float('%.8f' % float(trade['commission']))
-                                    field_amount += float('%.8f' % float(trade['qty']))
-                                    price = float('%.2f' % float(trade['price']))
-                                    field_cash_amount += float('%.8f' % (float(trade['qty']) * price))
-                        except Exception as e:
-                            self.logger.error(u'get order or get trades error: %s' % e)
+                        times = 0
+                        while times < 10:
+                            self.logger.info(u'第%s次查询Binance订单状态')
+                            try:
+                                order = self.binanceClient.get_order(symbol='BTCUSDT', orderId=buy_order_id)
+                                buy_order['status'] = order['status']
+                                self.logger.info(u'当前订单状态为: %s', order['status'])
+                                # 撤销失败，状态必定为FILLED?
+                                if buy_order['status'] == 'FILLED':
+                                    self.logger.info('计算本次成交量')
+                                    binance_trades = self.binanceClient.get_my_trades(symbol='BTCUSDT')
+                                    print binance_trades
+                                    for trade in binance_trades:
+                                        if trade['orderId'] == buy_order_id:
+                                            field_fees += float('%.8f' % float(trade['commission']))
+                                            field_amount += float('%.8f' % float(trade['qty']))
+                                            price = float('%.2f' % float(trade['price']))
+                                            field_cash_amount += float('%.8f' % (float(trade['qty']) * price))
+                                    break
+                            except Exception as e:
+                                self.logger.error(u'get order or get trades error: %s' % e)
+                            times += 1
+
+                        if times == 10:
+                            self.logger.info('未知错误,程序终止')
+                            break
                     # 有可能会出现撤销成功，但是撤销完成的过程中，又完成了部分委托,需要更新实际成交量
                     else:
                         self.logger.info('撤销成功')
@@ -350,7 +355,7 @@ class ArbitrageStratety:
                 if btc_amount < self.btc_exchange_min:
                     self.logger.info('BTC卖出数量低于 %s', self.btc_exchange_min)
                     self.logger.info('本次交易终止，开始回滚')
-                    #self.rollback_binance_order(buy_order_id)
+                    # self.rollback_binance_order(buy_order_id)
                     time.sleep(3)
                     continue
 
@@ -385,13 +390,17 @@ class ArbitrageStratety:
                         time.sleep(15)
 
                 if times == 20:
+                    self.huobi_timeout += 1
                     if self.huobi_timeout == self.huobi_max_timeout:
                         self.logger.info('连续%s次超时，终止程序' % self.huobi_timeout)
                         break
                     else:
                         self.logger.info('连续%s次超时，继续程序' % self.huobi_timeout)
-                        self.huobi_timeout += 1
-                        time.sleep(60)
+                        if self.huobi_timeout == 1:
+                            time.sleep(60)
+                        else:
+                            time.sleep(600)
+                        continue
                 else:
                     self.huobi_timeout = 0
 
@@ -431,6 +440,8 @@ class ArbitrageStratety:
                         self.binance_trade_usdt))
                 self.logger.info('|--------------------------------------------------')
                 self.update_profit_rate()
+
+                self.last_deal_time = int(time.time())
 
             # binance sell
             elif float(b_bids[0][0]) / h_asks[0][
@@ -473,7 +484,7 @@ class ArbitrageStratety:
                     self.logger.info('BTC卖出数量不足: %s, 本单取消' % self.btc_exchange_min)
                     time.sleep(1)
                     continue
-                if usdt_amount > self.huobi_trade_usdt + 10:
+                if usdt_amount > self.huobi_trade_usdt - 5:
                     self.logger.info('Huobi USDT 数量: %s, 不足：%s, 本单取消' % (self.huobi_trade_usdt, usdt_amount))
                     time.sleep(1)
                     continue
@@ -503,20 +514,32 @@ class ArbitrageStratety:
                         print cancel_r
                     except Exception as e:
                         self.logger.error(u'撤销错误: %s' % e)
-                        try:
-                            order = self.binanceClient.get_order(symbol='BTCUSDT', orderId=sell_order_id)
-                            sell_r['status'] = order['status']
-                            self.logger.info(u'当前订单状态为: %s', order['status'])
-                            binance_trades = self.binanceClient.get_my_trades(symbol='BTCUSDT')
-                            print binance_trades
-                            for trade in binance_trades:
-                                if trade['orderId'] == sell_order_id:
-                                    field_fees += float('%.8f' % float(trade['commission']))
-                                    field_amount += float('%.8f' % float(trade['qty']))
-                                    price = float('%.2f' % float(trade['price']))
-                                    field_cash_amount += float('%.8f' % (float(trade['qty']) * price))
-                        except Exception as e:
-                            self.logger.error(u'Bianance get_order or get_trades error: %s' % e)
+                        times = 0
+                        while times < 10:
+                            self.logger.info(u'第%s次查询Binance订单状态')
+                            try:
+                                order = self.binanceClient.get_order(symbol='BTCUSDT', orderId=buy_order_id)
+                                buy_order['status'] = order['status']
+                                self.logger.info(u'当前订单状态为: %s', order['status'])
+                                # 撤销失败，状态必定为FILLED?
+                                if buy_order['status'] == 'FILLED':
+                                    self.logger.info('计算本次成交量')
+                                    binance_trades = self.binanceClient.get_my_trades(symbol='BTCUSDT')
+                                    print binance_trades
+                                    for trade in binance_trades:
+                                        if trade['orderId'] == buy_order_id:
+                                            field_fees += float('%.8f' % float(trade['commission']))
+                                            field_amount += float('%.8f' % float(trade['qty']))
+                                            price = float('%.2f' % float(trade['price']))
+                                            field_cash_amount += float('%.8f' % (float(trade['qty']) * price))
+                                    break
+                            except Exception as e:
+                                self.logger.error(u'get order or get trades error: %s' % e)
+                            times += 1
+
+                        if times == 10:
+                            self.logger.info('未知错误,程序终止')
+                            break
                     else:
                         self.logger.info('撤销成功')
                         self.logger.info('更新本次成交量')
@@ -565,7 +588,7 @@ class ArbitrageStratety:
                 if btc_amount < self.btc_exchange_min:
                     self.logger.error('BTC交易数量低于 %s' % self.btc_exchange_min)
                     self.logger.info('本次交易终止，开始回滚')
-                    #self.rollback_binance_order(sell_order_id)
+                    # self.rollback_binance_order(sell_order_id)
                     time.sleep(3)
                     continue
                 buy_r = self.huobiSpot.send_order(btc_amount, 'api', 'btcusdt', 'buy-limit', buy_price)
@@ -594,45 +617,6 @@ class ArbitrageStratety:
                         field_amount = float('%.8f' % float(buy_order_result['data']['field-amount']))
                         field_cash_amount = float('%.8f' % float(buy_order_result['data']['field-cash-amount']))
                         field_fees = float('%.8f' % (field_cash_amount * 0.002))
-
-                        # update income
-                        self.huobi_usdt_dec = field_cash_amount
-                        self.huobi_fees += field_fees
-
-                        self.huobi_usdt_total_change -= self.huobi_usdt_dec
-
-                        self.logger.info('field_amount:%.8f\tfield_cash_amount:%.8f' % (
-                            field_amount, field_cash_amount))
-
-                        self.huobi_trade_btc += field_amount
-                        self.huobi_trade_usdt -= field_cash_amount
-                        # total
-                        usdt_inc = self.binance_usdt_inc - self.huobi_usdt_dec
-                        thistime_earnings = usdt_inc
-                        thistime_earnings_rate = thistime_earnings * 1.0 / field_cash_amount
-
-                        # total_btc_earnings = self.huobi_btc_total_change + self.binance_btc_total_change
-                        total_usdt_earnings = self.huobi_usdt_total_change + self.binance_usdt_total_change
-
-                        self.logger.info('本次交易量: %s BTC, 盈利: %s USDT, 盈利率: %s' % (
-                            float(field_amount), thistime_earnings, thistime_earnings_rate))
-                        self.logger.info(
-                            '总BTC成交量: %s, 盈利: %s USDT, 盈利率: %s' % (
-                                self.btc_exchange_amount, total_usdt_earnings,
-                                total_usdt_earnings * 1.0 / self.usdt_exchange_amount))
-                        self.logger.info('总手续费：%s USDT\t%s BNB' % (self.huobi_fees, self.binance_fees))
-                        self.logger.info('|--------------------------------------------------')
-                        self.logger.info('|' + ' BTC:\tTOTAL:{:<20.8f}HUOBI:{:<20.8f}BINANCE:{:<20.8f}'.format(
-                            (self.huobi_trade_btc + self.binance_trade_btc), self.huobi_trade_btc,
-                            self.binance_trade_btc))
-                        self.logger.info(
-                            '|' + 'USDT:\tTOTAL:{:<20.8f}HUOBI:{:<20.8f}BINANCE:{:<20.8f}'.format(
-                                (self.huobi_trade_usdt + self.binance_trade_usdt), self.huobi_trade_usdt,
-                                self.binance_trade_usdt))
-                        self.logger.info('|--------------------------------------------------')
-                        self.update_profit_rate()
-                        # time.sleep(0.5)
-                        # self.update_account_info()
                         break
                     times += 1
                     if times == 19:
@@ -645,16 +629,62 @@ class ArbitrageStratety:
                         break
                     else:
                         self.logger.info('连续%s次超时，继续程序' % self.huobi_timeout)
-                        time.sleep(60)
+                        if self.huobi_timeout == 1:
+                            time.sleep(60)
+                        else:
+                            time.sleep(600)
+                        continue
                 else:
                     self.huobi_timeout = 0
 
+                self.logger.info('field_amount:%.8f\tfield_cash_amount:%.8f' % (
+                    field_amount, field_cash_amount))
+                # update income
+                self.huobi_usdt_dec = field_cash_amount
+                self.huobi_fees += field_fees
+
+                self.huobi_usdt_total_change -= self.huobi_usdt_dec
+
+                self.huobi_trade_btc += field_amount
+                self.huobi_trade_usdt -= field_cash_amount
+                # total
+                usdt_inc = self.binance_usdt_inc - self.huobi_usdt_dec
+                thistime_earnings = usdt_inc
+                thistime_earnings_rate = thistime_earnings * 1.0 / field_cash_amount
+
+                # total_btc_earnings = self.huobi_btc_total_change + self.binance_btc_total_change
+                total_usdt_earnings = self.huobi_usdt_total_change + self.binance_usdt_total_change
+
+                self.logger.info('本次交易量: %s BTC, 盈利: %s USDT, 盈利率: %s' % (
+                    float(field_amount), thistime_earnings, thistime_earnings_rate))
+                self.logger.info(
+                    '总BTC成交量: %s, 盈利: %s USDT, 盈利率: %s' % (
+                        self.btc_exchange_amount, total_usdt_earnings,
+                        total_usdt_earnings * 1.0 / self.usdt_exchange_amount))
+                self.logger.info('总手续费：%s USDT\t%s BNB' % (self.huobi_fees, self.binance_fees))
+                self.logger.info('|--------------------------------------------------')
+                self.logger.info('|' + ' BTC:\tTOTAL:{:<20.8f}HUOBI:{:<20.8f}BINANCE:{:<20.8f}'.format(
+                    (self.huobi_trade_btc + self.binance_trade_btc), self.huobi_trade_btc,
+                    self.binance_trade_btc))
+                self.logger.info(
+                    '|' + 'USDT:\tTOTAL:{:<20.8f}HUOBI:{:<20.8f}BINANCE:{:<20.8f}'.format(
+                        (self.huobi_trade_usdt + self.binance_trade_usdt), self.huobi_trade_usdt,
+                        self.binance_trade_usdt))
+                self.logger.info('|--------------------------------------------------')
+                self.update_profit_rate()
+
+                self.last_deal_time = int(time.time())
             time.sleep(0.1)
             nowtime = time.strftime('%H:%M:%S', time.localtime(time.time()))
             if nowtime.startswith('08:30'):
                 self.order_statistics()
                 self.output.close()
-                break
+                # break
+
+            # 每半小时没有交易就更新账户信息
+            if self.last_deal_time > 0 and int(time.time()) - self.last_deal_time > 1800:
+                self.update_account_info()
+                self.last_deal_time = 0
 
     # TODO
     def rollback_binance_order(self, orderId):
@@ -753,7 +783,7 @@ class ArbitrageStratety:
         # print huobi_order_list
         # print binance_order_list
 
-        yestoday = datetime.date.today() + datetime.timedelta(days=-1)
+        yestoday = datetime.date.today() + datetime.timedelta(days=-2)
         timearray = time.strptime(str(yestoday) + ' 8:30:00', "%Y-%m-%d %H:%M:%S")
         timestamp = int(round(time.mktime(timearray)) * 1000)
         print timestamp
@@ -864,6 +894,8 @@ class ArbitrageStratety:
                         # print order['created-at']
                         if order['created-at'] < timestamp:
                             continue
+                        if order['id'] == binance_id and order['field-amount'] > 0:
+                            print order
                         if order['id'] == binance_id and 'CANCELED' in order['state']:
                             worksheet2.write_datetime(row_2, col, datetime.datetime.fromtimestamp(
                                 float(str(order['created-at'])[0:-3] + '.' + str(order['created-at'])[-3:0])),
@@ -944,6 +976,6 @@ class ArbitrageStratety:
 if __name__ == '__main__':
     strategy = ArbitrageStratety()
     strategy.update_account_info()
-    strategy.go()
-    # strategy.order_statistics()
-    #trategy.rollback_binance_order('72499288')
+    #strategy.go()
+    strategy.order_statistics()
+    # trategy.rollback_binance_order('72499288')

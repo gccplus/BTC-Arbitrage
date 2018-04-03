@@ -12,7 +12,6 @@ import json
 import urllib
 import datetime
 import requests
-import urllib2
 import urlparse
 
 
@@ -68,7 +67,7 @@ class HuobiSpot:
             else:
                 return {"status": "fail"}
         except Exception as e:
-            #print("httpGet failed, detail is:%s" % e)
+            # print("httpGet failed, detail is:%s" % e)
             return {"status": "fail", "msg": e}
 
     def http_post_request(self, url, params, add_to_headers=None):
@@ -88,7 +87,7 @@ class HuobiSpot:
             else:
                 return response.json()
         except Exception as e:
-            #print("httpPost failed, detail is:%s" % e)
+            # print("httpPost failed, detail is:%s" % e)
             return {"status": "fail", "msg": e}
 
     def api_key_get(self, params, request_path):
@@ -211,6 +210,16 @@ class HuobiSpot:
         return self.api_key_get(params, path)
 
     # ACCOUNT_ID = 0
+    def get_hbpoint(self):
+        try:
+            accounts = self.get_accounts()
+            acct_id = accounts['data'][3]['id']
+        except BaseException as e:
+            print 'get user_id error.%s' % e
+        else:
+            url = "/v1/account/accounts/{0}/balance".format(acct_id)
+            params = {"account-id": acct_id}
+            return self.api_key_get(params, url)
 
     # 获取当前账户资产
     def get_balance(self, acct_id=None):
@@ -529,19 +538,21 @@ if __name__ == '__main__':
                 key_dict[splited[0].strip()] = splited[1].strip()
     huobispot = HuobiSpot(key_dict['HUOBI_ACCESS_KEY'], key_dict['HUOBI_SECRET_KEY'])
     print huobispot.get_balance()
-    h_depth = huobispot.get_depth('btcusdt', 'step5')
-    h_bids = h_depth['tick']['bids']
-    h_asks = h_depth['tick']['asks']
-    print h_bids
-    print h_asks
-    # #
+    # h_depth = huobispot.get_depth('btcusdt', 'step5')
+    # h_bids = h_depth['tick']['bids']
+    # # h_asks = h_depth['tick']['asks']
+    # print h_bids
+    # # print h_asks
+    # print huobispot.get_hbpoint()
+    # print huobispot.get_symbols()
+    # # #
     # # import numpy as np
     # # print np.sum(h_bids[:5], axis=0)
     # # print np.std(h_bids[:10], axis=0)
     # import json
     #
-    # jjj = huobispot.send_order('0.001111', 'api', 'btcusdt', 'buy-limit', 5000)
-    # print jjj
+    jjj = huobispot.send_order(0.0011, 'api', 'btcusdt', 'buy-limit', 5000)
+    print jjj
     # print jjj
     # # 请教各位大神一个api问题
     # kkk = huobispot.send_order('1', 'api', 'btcusdt', 'buy-market')
@@ -554,8 +565,8 @@ if __name__ == '__main__':
     #     print order_result2
 
     # 以上这个市价买的订单，第一个参数amount只能以usdt为单位，不能以btc为单位么？
-    #kkk = huobispot.send_order('1.0001', 'api', 'btcusdt', 'buy-limit', 3000)
-    #print kkk
+    # kkk = huobispot.send_order('1.0001', 'api', 'btcusdt', 'buy-limit', 3000)
+    # print kkk
     # print jjj
     # order_id = jjj['data']
     # print order_id
@@ -565,7 +576,7 @@ if __name__ == '__main__':
     # kkk = huobispot.cancel_order('2301939102')
     # print kkk
     # = huobispot.order_info('2495142037')
-    #print mmm
+    # print mmm
     # if mmm['data']['finished-at'] != 0:
     #     print mmm
     # print mmm

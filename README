@@ -15,3 +15,34 @@ OK
 
 币安会遇到撤销失败，查询状态仍然是new，但最终完全成交的
 
+u'filters':[
+{
+    u'tickSize':u'0.01000000',
+    u'minPrice':u'0.01000000',
+    u'filterType':u'PRICE_FILTER',
+    u'maxPrice':u'10000000.00000000'
+},
+{
+    u'maxQty':u'10000000.00000000',
+    u'filterType':u'LOT_SIZE',
+    u'minQty':u'0.00000100',
+    u'stepSize':u'0.00000100'
+},
+{
+    u'minNotional':u'10.00000000',
+    u'filterType':u'MIN_NOTIONAL'
+}
+币安对交易的USDT最小数量限制为10
+对BTC的精度要求是6，最小数量0.000001
+
+火币对交易的BTC最小数量限制为0.001，BTC精度4
+对USDT数量无限制
+
+{
+    u'price-precision':2,
+    u'base-currency':u'btc',
+    u'symbol-partition':u'main',
+    u'quote-currency':u'usdt',
+    u'amount-precision':4
+},
+

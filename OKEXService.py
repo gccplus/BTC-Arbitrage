@@ -2,13 +2,11 @@
 
 from __future__ import absolute_import
 import requests
-import json
-import base64
-import hmac
 import hashlib
 import time
 import logging
 import urllib
+from okex_errors import OKEX_ERROR
 
 PROTOCOL = "https"
 HOST = "www.okex.com/api"
@@ -36,9 +34,17 @@ MATCH_PRICE_FALSE = '0'
 # HTTP request timeout in seconds
 TIMEOUT = 10.0
 
+class OkexAPIException(Exception):
+    def __init__(self, json_res):
+        self.code = json_res['error_code']
+        try:
+            self.message = OKEX_ERROR[str(self.code)]
+        except KeyError:
+            self.code = 3001
+            self.message = 'Key Error, error_code: %s' % json_res['error_code']
 
-class OkexClientError(Exception):
-    pass
+    def __str__(self):  # pragma: no cover
+        return 'APIError(code=%s): %s' % (self.code, self.message)
 
 
 class OkexBaseClient(object):
@@ -108,13 +114,15 @@ class OkexBaseClient(object):
         }
         if headers:
             req_headers.update(headers)
-        #logging.info("%s %s", req_headers, req_params)
 
         req = requests.post(url, headers=req_headers, data=urllib.urlencode(req_params), timeout=TIMEOUT,
                             proxies=self.PROXIES)
         if req.status_code / 100 != 2:
             logging.error(u"Failed to request:%s %d headers:%s", url, req.status_code, req.headers)
-        return req.json()
+        jsonr = req.json()
+        if 'error_code' in jsonr:
+            raise OkexAPIException(jsonr)
+        return jsonr
 
 
 class OkexFutureClient(OkexBaseClient):
@@ -488,11 +496,11 @@ class OkexSpotClient(OkexBaseClient):
         # Response
         {"result":true,"order_id":123456}
         """
-        assert (isinstance(amount, str) and isinstance(price, str))
+        #assert (isinstance(amount, str) and isinstance(price, str))
 
-        if ord_type not in ('buy', 'sell', 'buy_market', 'sell_market'):
-            # 买卖类型： 限价单（buy/sell） 市价单（buy_market/sell_market）
-            raise OkexClientError("Invaild order type")
+        # if ord_type not in ('buy', 'sell', 'buy_market', 'sell_market'):
+        #     # 买卖类型： 限价单（buy/sell） 市价单（buy_market/sell_market）
+        #     raise OkexClientError("Invaild order type")
 
         payload = {
             "symbol": symbol, "type": ord_type
@@ -619,8 +627,6 @@ class OkexSpotClient(OkexBaseClient):
                 "page_length": PAGE_LENGTH,
             }
             result = self._post(self.url_for(PATH_ORDER_HISTORY), params=payload)
-            if not result['result']:
-                raise OkexClientError('Failed to get history order:%s %s' % (symbol, result))
             if len(result['orders']) > 0:
                 final_result.extend(result['orders'])
             else:

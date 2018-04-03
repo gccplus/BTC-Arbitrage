@@ -13,7 +13,7 @@ class BinanceTest:
                                   'VledCYW4007QZis6x0vF4ejxtn6U8nHldzhP3ZBF6xFETTtYr8aF8LvTz4D9vIxP')
 
     def test_binance_order(self):
-        orderId = '72532682'
+        orderId = '74769525'
         order = self.client.get_order(symbol='BTCUSDT', orderId=orderId)
         # order = self.binanceClient.get_my_trades()
         print order
@@ -41,11 +41,13 @@ class BinanceTest:
         except Exception as e:
             print e
 
-    # def test_binance_order(self):
-    #     price = '10000.010'
-    #     buy_order = self.binanceClient.order_limit_buy(symbol='BTCUSDT', quantity=0.001011,
-    #                                                    price=price, newOrderRespType='FULL')
-    #     print buy_order
+    def test_binance_trade(self):
+        price = '1000000.011'
+        # buy_order = self.binanceClient.order_limit_buy(symbol='BTCUSDT', quantity=0.001011,
+        #                                                price=price, newOrderRespType='FULL')
+        sell_order = self.client.order_limit_sell(symbol='BTCUSDT', quantity='0.00001',
+                                                       price=price, newOrderRespType='FULL')
+        print sell_order
 
     def test_binance_symbols(self):
         print self.client.get_symbol_info(symbol='BTCUSDT')
@@ -61,8 +63,8 @@ class OkexTest:
 
 
 if __name__ == '__main__':
-    binance_client = BinanceSpot('HjlK2qHg1DZ6ya9kjHkBrPq18j43Zcl5si7QoMvzvRXMwO28gBK8VIWAJfN2UOiI',
-                                 'VledCYW4007QZis6x0vF4ejxtn6U8nHldzhP3ZBF6xFETTtYr8aF8LvTz4D9vIxP')
     binance_test = BinanceTest()
+    binance_test.test_binance_symbols()
+    #binance_test.test_binance_trade()
     binance_test.test_binance_depth()
     #binance_test.test_binance_order()

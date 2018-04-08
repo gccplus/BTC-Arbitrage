@@ -13,7 +13,7 @@ class BinanceTest:
                                   'VledCYW4007QZis6x0vF4ejxtn6U8nHldzhP3ZBF6xFETTtYr8aF8LvTz4D9vIxP')
 
     def test_binance_order(self):
-        orderId = '74769525'
+        orderId = '83179528'
         order = self.client.get_order(symbol='BTCUSDT', orderId=orderId)
         # order = self.binanceClient.get_my_trades()
         print order
@@ -64,7 +64,7 @@ class OkexTest:
 
 if __name__ == '__main__':
     binance_test = BinanceTest()
-    binance_test.test_binance_symbols()
+    #binance_test.test_binance_symbols()
     #binance_test.test_binance_trade()
-    binance_test.test_binance_depth()
-    #binance_test.test_binance_order()
+    #binance_test.test_binance_depth()
+    binance_test.test_binance_order()

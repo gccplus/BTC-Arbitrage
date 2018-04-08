@@ -23,16 +23,17 @@ PATH_CANCEL_ORDER = "cancel_order.do"  # 撤销订单
 PATH_BALANCES_USERINFO = "userinfo.do"  # 个人资产情况
 PATH_TRADE = "trade.do"  # 获取币币交易信息
 
-OPEN_LONG = '1'   #开多
-OPEN_SHORT = '2'  #开空
-CLOSE_LONG = '3'  #平多
-CLOSE_SHORT = '4' #平空
+OPEN_LONG = '1'  # 开多
+OPEN_SHORT = '2'  # 开空
+CLOSE_LONG = '3'  # 平多
+CLOSE_SHORT = '4'  # 平空
 
 MATCH_PRICE_TRUE = '1'
 MATCH_PRICE_FALSE = '0'
 
 # HTTP request timeout in seconds
 TIMEOUT = 10.0
+
 
 class OkexAPIException(Exception):
     def __init__(self, json_res):
@@ -99,9 +100,9 @@ class OkexBaseClient(object):
     def _get(self, url, timeout=TIMEOUT):
         req = requests.get(url, timeout=timeout, proxies=self.PROXIES)
         if req.status_code / 100 != 2:
-            logging.error(u"Failed to request:%s %d headers:%s", url, req.status_code, req.headers)
+            logging.error(u"Failed to request:%s %d headers:%s",
+                          url, req.status_code, req.headers)
         return req.json()
-
 
     def _post(self, url, params=None, needsign=True, headers=None, timeout=TIMEOUT):
         req_params = {'api_key': self.KEY}
@@ -118,7 +119,8 @@ class OkexBaseClient(object):
         req = requests.post(url, headers=req_headers, data=urllib.urlencode(req_params), timeout=TIMEOUT,
                             proxies=self.PROXIES)
         if req.status_code / 100 != 2:
-            logging.error(u"Failed to request:%s %d headers:%s", url, req.status_code, req.headers)
+            logging.error(u"Failed to request:%s %d headers:%s",
+                          url, req.status_code, req.headers)
         jsonr = req.json()
         if 'error_code' in jsonr:
             raise OkexAPIException(jsonr)
@@ -226,6 +228,93 @@ class OkexFutureClient(OkexBaseClient):
             'contract_type': contract_type
         }
         return self._get(self.url_for('future_price_limit.do', parameters=params))
+
+    def position(self, symbol, contract_type):
+        """
+        获取用户持仓获取OKEX合约账户信息 （全仓）
+        # Request
+        POST https://www.okex.com/api/v1/future_position.do
+        # Response
+        {
+            "force_liqu_price": "0.07",
+            "holding": [
+                {
+                    "buy_amount": 1,
+                    "buy_available": 0,
+                    "buy_price_avg": 422.78,
+                    "buy_price_cost": 422.78,
+                    "buy_profit_real": -0.00007096,
+                    "contract_id": 20141219012,
+                    "contract_type": "this_week",
+                    "create_date": 1418113356000,
+                    "lever_rate": 10,
+                    "sell_amount": 0,
+                    "sell_available": 0,
+                    "sell_price_avg": 0,
+                    "sell_price_cost": 0,
+                    "sell_profit_real": 0,
+                    "symbol": "btc_usd"
+                }
+            ],
+            "result": true
+        }
+        返回值说明
+        buy_amount(double):多仓数量
+        buy_available:多仓可平仓数量
+        buy_price_avg(double):开仓平均价
+        buy_price_cost(double):结算基准价
+        buy_profit_real(double):多仓已实现盈余
+        contract_id(long):合约id
+        create_date(long):创建日期
+        lever_rate:杠杆倍数
+        sell_amount(double):空仓数量
+        sell_available:空仓可平仓数量
+        sell_price_avg(double):开仓平均价
+        sell_price_cost(double):结算基准价
+        sell_profit_real(double):空仓已实现盈余
+        symbol:btc_usd   ltc_usd    eth_usd    etc_usd    bch_usd
+        contract_type:合约类型
+        force_liqu_price:预估爆仓价
+        """
+        payload = {
+            'symbol': symbol,
+            'contract_type': contract_type,
+        }
+        return self._post(self.url_for('future_position.do'), params=payload)
+
+    def userinfo(self):
+        """
+        获取OKEx合约账户信息(全仓)
+        # Request
+        POST https://www.okex.com/api/v1/future_userinfo.do
+        # Response
+        {
+            "info": {
+                "btc": {
+                    "account_rights": 1,
+                    "keep_deposit": 0,
+                    "profit_real": 3.33,
+                    "profit_unreal": 0,
+                    "risk_rate": 10000
+                },
+                "ltc": {
+                    "account_rights": 2,
+                    "keep_deposit": 2.22,
+                    "profit_real": 3.33,
+                    "profit_unreal": 2,
+                    "risk_rate": 10000
+                }
+            },
+            "result": true
+        }
+        返回值说明
+        account_rights:账户权益
+        keep_deposit：保证金
+        profit_real：已实现盈亏
+        profit_unreal：未实现盈亏
+        risk_rate：保证金率
+        """
+        return self._post(self.url_for('future_userinfo.do'))
 
     def userinfo_4fix(self):
         """
@@ -626,7 +715,8 @@ class OkexSpotClient(OkexBaseClient):
                 "current_page": page_index,
                 "page_length": PAGE_LENGTH,
             }
-            result = self._post(self.url_for(PATH_ORDER_HISTORY), params=payload)
+            result = self._post(self.url_for(
+                PATH_ORDER_HISTORY), params=payload)
             if len(result['orders']) > 0:
                 final_result.extend(result['orders'])
             else:
@@ -660,7 +750,8 @@ class OkexSpotClient(OkexBaseClient):
         '''
         payload = {
         }
-        result = self._post(self.url_for(PATH_BALANCES_USERINFO), params=payload)
+        result = self._post(self.url_for(
+            PATH_BALANCES_USERINFO), params=payload)
         return result
 
 

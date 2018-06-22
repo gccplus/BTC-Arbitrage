@@ -6,7 +6,7 @@ import hashlib
 import time
 import logging
 import urllib
-from okex_errors import OKEX_ERROR
+#from okex_errors import OKEX_ERROR
 
 PROTOCOL = "https"
 HOST = "www.okex.com/api"

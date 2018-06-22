@@ -128,6 +128,51 @@ class OkexBaseClient(object):
 
 
 class OkexFutureClient(OkexBaseClient):
+    def kline(self, symbol, type, contract_type):
+        """
+        # Request
+        GET https://www.okex.com/api/v1/future_depth.do
+        # Response
+        [
+            [
+                1440308700000,
+                233.37,
+                233.48,
+                233.37,
+                233.48,
+                52,
+                22.2810015
+            ],
+            [
+                1440308760000,
+                233.38,
+                233.38,
+                233.27,
+                233.37,
+                186,
+                79.70234956
+            ]
+        ]
+        :return:
+
+        返回值说明
+        [
+            1440308760000,	时间戳
+            233.38,		开
+            233.38,		高
+            233.27,		低
+            233.37,		收
+            186,		交易量
+            79.70234956		交易量转化BTC或LTC数量
+        ]
+        """
+        params = {
+            'symbol': symbol,
+            'type': type,
+            'contract_type': contract_type
+        }
+        return self._get(self.url_for('future_kline.do', parameters=params))
+
     def ticker(self, symbol, contract_type):
         """
         # Request
@@ -585,7 +630,7 @@ class OkexSpotClient(OkexBaseClient):
         # Response
         {"result":true,"order_id":123456}
         """
-        #assert (isinstance(amount, str) and isinstance(price, str))
+        # assert (isinstance(amount, str) and isinstance(price, str))
 
         # if ord_type not in ('buy', 'sell', 'buy_market', 'sell_market'):
         #     # 买卖类型： 限价单（buy/sell） 市价单（buy_market/sell_market）

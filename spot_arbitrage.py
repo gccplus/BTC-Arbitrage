@@ -223,11 +223,11 @@ class ArbitrageStratety:
                 self.logger.error(u'获取Binance市场深度错误: %s' % e)
                 time.sleep(3)
                 continue
-
+            # print b_depth
             # 需要合并深度
             b_bids = ArbitrageStratety.merge_depth(b_depth['bids'])
             b_asks = ArbitrageStratety.merge_depth(b_depth['asks'])
-            print b_bids
+            print b_asks
 
             # huobi sell
             if h_bids[0][0] * 1.0 / float(
@@ -317,7 +317,7 @@ class ArbitrageStratety:
                     self.logger.info('更新成交量')
                     times = 0
                     while times < 10:
-                        self.logger.info(u'第%s次查询Binance订单状态' % times)
+                        self.logger.info(u'第%s次查询Binance订单状态' % (times + 1))
                         try:
                             order = self.binanceClient.get_order(symbol='BTCUSDT', orderId=buy_order_id)
                             self.logger.info(u'当前订单状态为: %s', order['status'])
@@ -532,7 +532,7 @@ class ArbitrageStratety:
                     # 撤销未完成订单
                     self.logger.info('撤消未完成委托')
                     try:
-                        cancel_r = self.binanceClient.cancel_order(symbol='BTCUSDT', orderId=buy_order_id)
+                        cancel_r = self.binanceClient.cancel_order(symbol='BTCUSDT', orderId=sell_order_id)
                         print cancel_r
                     except Exception as e:
                         self.logger.error(u'撤销错误: %s' % e)
@@ -541,9 +541,10 @@ class ArbitrageStratety:
                     self.logger.info('更新成交量')
                     times = 0
                     while times < 10:
-                        self.logger.info(u'第%s次查询Binance订单状态' % times)
+                        self.logger.info(u'第%s次查询Binance订单状态' % (times + 1))
                         try:
-                            order = self.binanceClient.get_order(symbol='BTCUSDT', orderId=buy_order_id)
+                            order = self.binanceClient.get_order(symbol='BTCUSDT', orderId=sell_order_id)
+                            print order
                             self.logger.info(u'当前订单状态为: %s', order['status'])
                             # 撤销成功，状态必定为CANCELED, 撤销成功则为FILLED
                             if order['status'] == 'CANCELED' or order['status'] == 'FILLED':
@@ -764,8 +765,8 @@ class ArbitrageStratety:
                     break
                 self.last_deal_time = 0
 
-    def rollback_binance_order(self, orderId):
-        order_info = self.binanceClient.get_order(symbol='BTCUSDT', orderId=orderId)
+    def rollback_binance_order(self, orderid):
+        order_info = self.binanceClient.get_order(symbol='BTCUSDT', orderId=orderid)
         side = order_info['side'].upper()
         field_amount = float('%.6f' % float(order_info['executedQty']))
         price = float('%.2f' % float(order_info['price']))
@@ -846,14 +847,14 @@ class ArbitrageStratety:
                 'field-cash-amount': 0
             }
             binance_order_list.append(dict)
-        for iter in binance_order_list:
-            id = iter['id']
+        for item in binance_order_list:
+            id = item['id']
             for trade in binance_trades:
                 if trade['orderId'] == id:
-                    iter['commission'] += float('%.8f' % float(trade['commission']))
-                    iter['field-amount'] += float('%.8f' % float(trade['qty']))
-                    iter['price'] = float('%.2f' % float(trade['price']))
-                    iter['field-cash-amount'] += float('%.8f' % (float(trade['qty']) * iter['price']))
+                    item['commission'] += float('%.8f' % float(trade['commission']))
+                    item['field-amount'] += float('%.8f' % float(trade['qty']))
+                    item['price'] = float('%.2f' % float(trade['price']))
+                    item['field-cash-amount'] += float('%.8f' % (float(trade['qty']) * item['price']))
         huobi_order_list = sorted(huobi_order_list, key=lambda x: x['created-at'], reverse=True)
         binance_order_list = sorted(binance_order_list, key=lambda x: x['created-at'], reverse=True)
 

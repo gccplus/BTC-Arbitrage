@@ -165,6 +165,17 @@ class HuobiSpot:
         url = self.MARKET_URL + '/market/depth'
         return self.http_get_request(url, params)
 
+    # 获取聚合行情
+    def get_ticker(self, symbol):
+        """
+        :param symbol:
+        :return:
+        """
+        params = {'symbol': symbol}
+
+        url = self.MARKET_URL + '/market/detail/merged'
+        return self.http_get_request(url, params)
+
     # 获取tradedetail
     def get_trade(self, symbol):
         """
@@ -213,7 +224,8 @@ class HuobiSpot:
     def get_hbpoint(self):
         try:
             accounts = self.get_accounts()
-            acct_id = accounts['data'][3]['id']
+            print accounts
+            acct_id = accounts['data'][2]['id']
         except BaseException as e:
             print 'get user_id error.%s' % e
         else:
@@ -232,6 +244,7 @@ class HuobiSpot:
         if not acct_id:
             try:
                 accounts = self.get_accounts()
+
                 acct_id = self.ACCOUNT_ID = accounts['data'][0]['id']
             except BaseException as e:
                 print 'get acct_id error.%s' % e
@@ -368,7 +381,6 @@ class HuobiSpot:
     # 申请提现虚拟币
     def withdraw(self, address, amount, currency, fee=0, addr_tag=""):
         """
-
         :param address_id:
         :param amount:
         :param currency:btc, ltc, bcc, eth, etc ...(火币Pro支持的币种)
@@ -521,6 +533,12 @@ class HuobiSpot:
         :param symbol:
         :return:
         """
+        if not self.ACCOUNT_ID:
+            try:
+                accounts = self.get_accounts()
+                self.ACCOUNT_ID = accounts['data'][1]['id']
+            except BaseException as e:
+                print 'get acct_id error.%s' % e
         params = {}
         url = "/v1/margin/accounts/balance"
         if symbol:
@@ -536,8 +554,12 @@ if __name__ == '__main__':
             splited = line.split('=')
             if len(splited) == 2:
                 key_dict[splited[0].strip()] = splited[1].strip()
-    huobispot = HuobiSpot(key_dict['HUOBI_ACCESS_KEY'], key_dict['HUOBI_SECRET_KEY'])
+    huobispot = HuobiSpot(key_dict['HUOBI_ACCESS_KEY2'], key_dict['HUOBI_SECRET_KEY2'])
     print huobispot.get_balance()
+    print huobispot.get_symbols()
+    print huobispot.get_kline('btcusdt', '1min', 120)
+    # print huobispot.get_hbpoint()
+    # print huobispot.margin_balance('btcusdt')
     # h_depth = huobispot.get_depth('btcusdt', 'step5')
     # h_bids = h_depth['tick']['bids']
     # # h_asks = h_depth['tick']['asks']
@@ -551,8 +573,8 @@ if __name__ == '__main__':
     # # print np.std(h_bids[:10], axis=0)
     # import json
     #
-    jjj = huobispot.send_order(0.0011, 'api', 'btcusdt', 'buy-limit', 5000)
-    print jjj
+    # jjj = huobispot.send_order(0.001, 'margin-api', 'btcusdt', 'buy-limit', 5000)
+    # print jjj
     # print jjj
     # # 请教各位大神一个api问题
     # kkk = huobispot.send_order('1', 'api', 'btcusdt', 'buy-market')

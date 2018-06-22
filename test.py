@@ -1,6 +1,9 @@
 # -*- coding: utf-8 -*-
 from binance.client import Client as BinanceSpot
-import  re
+import re
+import time
+import numpy as np
+
 
 class HuobiTest:
     def __init__(self, ):
@@ -13,7 +16,7 @@ class BinanceTest:
                                   'VledCYW4007QZis6x0vF4ejxtn6U8nHldzhP3ZBF6xFETTtYr8aF8LvTz4D9vIxP')
 
     def test_binance_order(self):
-        orderId = '83179528'
+        orderId = '83956188'
         order = self.client.get_order(symbol='BTCUSDT', orderId=orderId)
         # order = self.binanceClient.get_my_trades()
         print order
@@ -42,29 +45,47 @@ class BinanceTest:
             print e
 
     def test_binance_trade(self):
-        price = '1000000.011'
+        price = '1000000'
         # buy_order = self.binanceClient.order_limit_buy(symbol='BTCUSDT', quantity=0.001011,
         #                                                price=price, newOrderRespType='FULL')
-        sell_order = self.client.order_limit_sell(symbol='BTCUSDT', quantity='0.00001',
-                                                       price=price, newOrderRespType='FULL')
+        sell_order = self.client.order_limit_sell(symbol='BTCUSDT', quantity='0.01',
+                                                  price=price, newOrderRespType='FULL')
         print sell_order
 
     def test_binance_symbols(self):
-        print self.client.get_symbol_info(symbol='BTCUSDT')
+        print self.client.get_symbol_info()
 
     def test_cancel_order(self):
         orderId = '72532649'
         print self.client.cancel_order(symbol='BTCUSDT', orderId=orderId)
 
+    def test_kline(self):
+        """
+        1月 Jan  2月 Feb  3月 Mar  4月 Apr  5月 May  6月 Jun
+        7月 Jul  8月 Aug  9月 Sep  10月 Oct 11月 Nov 12月 Dec
+        :return:
+        """
+        instervals = ['1h']
+        intervers2 = ['1m', '3m', '5m', '15m', '30m', '1h', '2h', '4h', '8h', '12h', '1d']
+        for interval in instervals:
+            start_time = '1 Jan 2018'
+            kline = self.client.get_historical_klines("BTCUSDT", interval, start_time)
+            data = []
+            for item in kline:
+                open_time = item[0]
+                open = float(item[1])
+                high = float(item[2])
+                low = float(item[3])
+                close = float(item[4])
+                close_time = item[6]
+                data.append(float('%.6f' % ((close-open)/open)))
+            print data
 
-class OkexTest:
-    def __init__(self):
-        pass
 
 
 if __name__ == '__main__':
     binance_test = BinanceTest()
-    #binance_test.test_binance_symbols()
-    #binance_test.test_binance_trade()
-    #binance_test.test_binance_depth()
-    binance_test.test_binance_order()
+    binance_test.test_kline()
+    # binance_test.test_binance_trade()
+    # binance_test.test_binance_depth()
+    # binance_test.test_binance_order()

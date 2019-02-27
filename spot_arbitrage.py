@@ -110,7 +110,7 @@ class ArbitrageStratety:
     def sms_notify(msg):
         url = 'http://221.228.17.88:8080/sendmsg/send'
         params = {
-            'phonenum': '18118999630',
+            'phonenum': '181xxxxxxxx',
             'msg': msg
         }
         requests.get(url, params=params)
